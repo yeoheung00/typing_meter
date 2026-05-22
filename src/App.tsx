@@ -1,79 +1,153 @@
-import { useState, ChangeEvent, useRef, useEffect } from "react";
-import { TYPING_SENTENCES } from "./data/sentences"; // 앞서 만든 50대 문학 글귀
-import { convertSentenceToKeyArray } from "./util/util";
+import { useState, useEffect, useMemo } from "react";
+import { TYPING_SENTENCES } from "./data/sentences";
+import {
+  convertSentenceToKeyArray,
+  convertKeyArrayToSentence,
+} from "./util/util";
+import { format } from "./util/format";
 import "./App.css";
-
-const KO_TO_EN_MAP: { [key: string]: string[] } = {
-  // 초성/종성 자음
-  ㄱ: ["r"],
-  ㄲ: ["R"],
-  ㄴ: ["s"],
-  ㄷ: ["e"],
-  ㄸ: ["E"],
-  ㄹ: ["f"],
-  ㅁ: ["a"],
-  ㅂ: ["q"],
-  ㅃ: ["Q"],
-  ㅅ: ["t"],
-  ㅆ: ["T"],
-  ㅇ: ["d"],
-  ㅈ: ["w"],
-  ㅉ: ["W"],
-  ㅊ: ["c"],
-  ㅋ: ["z"],
-  ㅌ: ["x"],
-  ㅍ: ["v"],
-  ㅎ: ["g"],
-  // 중성 모음
-  ㅏ: ["k"],
-  ㅐ: ["o"],
-  ㅑ: ["i"],
-  ㅒ: ["O"],
-  ㅓ: ["j"],
-  ㅔ: ["p"],
-  ㅕ: ["u"],
-  ㅖ: ["P"],
-  ㅗ: ["h"],
-  ㅛ: ["y"],
-  ㅜ: ["n"],
-  ㅠ: ["b"],
-  ㅡ: ["m"],
-  ㅣ: ["l"],
-  // 복합 모음 타이핑 분리
-  ㅘ: ["h", "k"],
-  ㅙ: ["h", "o"],
-  ㅚ: ["h", "l"],
-  ㅝ: ["n", "j"],
-  ㅞ: ["n", "p"],
-  ㅟ: ["n", "l"],
-  ㅢ: ["m", "l"],
-  // 복합 종성 자음 타이핑 분리
-  ㄳ: ["r", "t"],
-  ㄵ: ["s", "w"],
-  ㄶ: ["s", "g"],
-  ㄺ: ["f", "r"],
-  ㄻ: ["f", "a"],
-  ㄼ: ["f", "q"],
-  ㄽ: ["f", "t"],
-  ㄾ: ["f", "x"],
-  ㄿ: ["f", "v"],
-  ㅀ: ["f", "g"],
-  ㅄ: ["q", "t"],
-};
 
 function App() {
   const [index, setIndex] = useState(0);
-  const [targetKeys, setTargetKeys] = useState<string[]>([]); // 현재 문장의 정답 키 배열
+  const [userKeys, setUserKeys] = useState<string[]>([]);
+
+  const currentSentence = TYPING_SENTENCES[index];
+  const targetKeys = useMemo(
+    () => convertSentenceToKeyArray(currentSentence),
+    [currentSentence],
+  );
+  const currentSentenceFormat = useMemo(
+    () => format(currentSentence),
+    [currentSentence],
+  );
+
+  // 💡 내가 지금까지 입력한 자판 배열을 실제 한글 문장 문자열로 변환합니다.
+  const currentUserSentence = convertKeyArrayToSentence(userKeys);
+  const currentUserSentenceFormat = format(currentUserSentence);
+
+  const handleNextSentence = () => {
+    setIndex((p) => (p + 1) % TYPING_SENTENCES.length);
+    setUserKeys([]);
+  };
+
+  // 전역 keydown 이벤트 로직 (기존과 동일)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.key.length > 1 && e.key !== "Backspace" && e.key !== "Spacebar")
+        return;
+
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        setUserKeys((prev) => prev.slice(0, -1));
+        return;
+      }
+
+      let pressedKey = "";
+      if (e.code === "Space") pressedKey = " ";
+      else if (e.code.startsWith("Key")) {
+        const char = e.code.replace("Key", "");
+        pressedKey = e.shiftKey ? char.toUpperCase() : char.toLowerCase();
+      } else pressedKey = e.key.toLowerCase();
+
+      if (!pressedKey) return;
+
+      setUserKeys((prev) => {
+        const nextKeys = [...prev, pressedKey];
+        return nextKeys;
+      });
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [targetKeys]);
+
+  return (
+    // 짚신/한지 느낌의 부드러운 베이지색 배경톤(bg-stone-100)
+    <div className="w-full h-full bg-stone-100 flex items-center justify-center font-serif select-none text-stone-800">
+      <div className="w-fit relative">
+        <h1 className="text-center text-lg font-bold tracking-widest text-emerald-800 mb-12 border-b-2 border-emerald-800">
+          綠 陰 方 草 (녹음방초) : 원고지 타자연습
+        </h1>
+
+        <div className="grid grid-cols-20 gap-y-4 gap-x-0 border-x-2 border-emerald-600/30">
+          {currentSentenceFormat.map((targetChar, charIndex) => {
+            // 현재 칸에 유저가 입력한 글자가 있는지 확인
+            const userChar = currentUserSentenceFormat[charIndex];
+            const isFilled = userChar !== undefined;
+
+            // 현재 유저가 타이핑 중인 '가장 마지막 글자(커서 위치)'인지 확인
+            const isCurrentCursor =
+              charIndex === currentUserSentenceFormat.length - 1;
+
+            return (
+              <div
+                key={charIndex}
+                // 💡 w-12 h-12로 완벽한 1:1 정방형 격자를 형성하고, 전통 원고지 특유의 청록색/벽돌색 선(border)을 긋습니다.
+                className={`w-12 h-12 ${charIndex % 20 === 0 ? "border-r-1" : charIndex % 20 === 19 ? "border-l-1" : "border-x-1"} border-y-2 border-emerald-600/30 relative flex items-center justify-center text-xl font-medium`}
+              >
+                <span className="absolute text-stone-300 font-light pointer-events-none select-none">
+                  {targetChar === " " ? "" : targetChar}
+                </span>
+
+                {isFilled && (
+                  <span
+                    className={`absolute font-bold z-10 animate-[fadeIn_0.15s_ease-out]
+                    ${userChar === targetChar ? "text-stone-900" : "text-rose-600 bg-rose-50/50 w-full h-full flex items-center justify-center"}
+                  `}
+                  >
+                    {userChar === " " ? " " : userChar}
+                  </span>
+                )}
+
+                {isCurrentCursor && (
+                  <span className="absolute bottom-1 right-1 w-0.5 h-10 bg-emerald-600 animate-[blink_1s_infinite]" />
+                )}
+              </div>
+            );
+          })}
+          {new Array(20 - (currentSentenceFormat.length % 20))
+            .fill("")
+            .map((_value, index) => (
+              <div
+                key={index}
+                className={`w-12 h-12 ${index + 1 === 20 - (currentSentenceFormat.length % 20) ? "border-l-1" : "border-x-1"} border-y-2 border-emerald-600/30 relative flex items-center justify-center text-xl font-medium`}
+              ></div>
+            ))}
+        </div>
+
+        <div className="flex justify-between items-center border-t border-stone-200 mt-12 pt-6 text-xs text-stone-500 font-sans">
+          <div>
+            원고지 사용량:{" "}
+            <span className="text-emerald-700 font-bold">
+              {currentUserSentence.length}
+            </span>{" "}
+            / {currentSentence.length} 자
+          </div>
+          <button
+            onClick={handleNextSentence}
+            className="px-4 py-2 bg-stone-800 text-stone-100 hover:bg-stone-700 rounded text-xs transition-all font-serif"
+          >
+            다음 문장 넘기기 ➡️
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
+function App() {
+  const [index, setIndex] = useState(0);
   const [userKeys, setUserKeys] = useState<string[]>([]); // 유저가 누른 키 저장소
 
   const currentSentence = TYPING_SENTENCES[index];
+  const targetKeys = convertSentenceToKeyArray(currentSentence);
 
-  // 문장이 바뀔 때마다 정답 배열을 추출하고 입력 버퍼를 비웁니다.
-  useEffect(() => {
-    const keys = convertSentenceToKeyArray(currentSentence);
-    setTargetKeys(keys);
-    setUserKeys([]);
-  }, [index, currentSentence]);
+  const handleNextSentence = () => {
+    setIndex((p) => (p + 1) % TYPING_SENTENCES.length);
+    setUserKeys([]); // 다음 문장으로 갈 때 버퍼 비우기
+  };
 
   // 키보드 하드웨어 입력 전역 감지
   useEffect(() => {
@@ -120,7 +194,7 @@ function App() {
           nextKeys.length === targetKeys.length &&
           nextKeys.join("") === targetKeys.join("")
         ) {
-          setIndex((p) => (p + 1) % TYPING_SENTENCES.length);
+          handleNextSentence();
           return [];
         }
 
@@ -139,13 +213,19 @@ function App() {
           ⌨️ 로우 레벨 자판 배열 타자 엔진 v1.0
         </h1>
 
-        {/* 1️⃣ 원본 가이드 문장 표시 */}
         <div className="text-2xl font-medium tracking-wide leading-relaxed mb-8 text-left bg-slate-950 p-6 rounded-xl border border-slate-800">
-          <p className="text-slate-400 select-none">{currentSentence}</p>
+          <p className="text-slate-400 select-none">
+            {TYPING_SENTENCES[index]}
+          </p>
         </div>
 
-        {/* 2️⃣ 💡 자판 입력 배열 실시간 디버깅/스트림 영역 */}
-        <div className="w-full min-h-[80px] bg-slate-950 px-6 py-4 rounded-xl border border-slate-800 text-left font-mono overflow-x-auto mb-8 flex flex-wrap items-center gap-1">
+        <div className="text-2xl font-menium tracking-wide leading-relaxed mb-8 text-left bg-slate-950 p-6 rounded-xl border border-slate-800">
+          <p className="text-slate-400 select-none">
+            {convertKeyArrayToSentence(userKeys)}
+          </p>
+        </div>
+
+        <div className="w-full min-h-20 bg-slate-950 px-6 py-4 rounded-xl border border-slate-800 text-left font-mono overflow-x-auto mb-8 flex flex-wrap items-center gap-1">
           {targetKeys.map((targetKey, kIndex) => {
             let boxClass = "border-slate-800 text-slate-600 bg-slate-900/50"; // 아직 입력 안 함
 
@@ -162,9 +242,8 @@ function App() {
             return (
               <div
                 key={kIndex}
-                className={`min-w-[28px] h-9 border rounded flex flex-col items-center justify-center text-xs px-1 font-mono transition-all ${boxClass}`}
+                className={`min-w-7 h-9 border rounded flex flex-col items-center justify-center text-xs px-1 font-mono transition-all ${boxClass}`}
               >
-                {/* 상단엔 타겟 영문 자판, 아래엔 현재 상태 */}
                 <span className="opacity-40 scale-75 uppercase">
                   {targetKey === " " ? "␣" : targetKey}
                 </span>
@@ -172,11 +251,9 @@ function App() {
             );
           })}
 
-          {/* 가상 커서 */}
-          <span className="w-[2px] h-5 bg-blue-400 ml-1 animate-pulse" />
+          <span className="w-0.5 h-5 bg-blue-400 ml-1 animate-pulse" />
         </div>
 
-        {/* 하단 컨트롤 바 */}
         <div className="flex justify-between items-center border-t border-slate-800 pt-6">
           <span className="text-xs text-slate-500 font-medium font-mono">
             STREAM BUFFER COUNT: {userKeys.length} / {targetKeys.length}
@@ -192,5 +269,6 @@ function App() {
     </div>
   );
 }
+*/
 
 export default App;
