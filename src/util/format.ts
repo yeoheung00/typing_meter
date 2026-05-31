@@ -1,63 +1,63 @@
-export function format(sentence: string): string[] {
-  const chars = sentence.split("");
-  const result: string[] = [];
-  let numBuffer = "";
-  chars.forEach((char, index) => {
-    if (char === " " || isNaN(Number(char))) {
-      result.push(char);
-    } else {
-      numBuffer += char;
-      if (numBuffer.length === 2) {
-        result.push(numBuffer);
-        numBuffer = "";
-      } else if (
-        index === chars.length - 1 ||
-        !isNaN(Number(chars[index + 1]))
-      ) {
-        result.push(numBuffer);
-        numBuffer = "";
-      }
-    }
-  });
-  return result;
-}
+import { convertSentenceToKeyArray } from "./converter"; // 기존 자판 분해 함수 경로
 
-// 📝 원고지 한 칸이 가질 데이터 구조
 export interface WongoziCell {
-  targetText: string; // 화면에 보여줄 글자 (예: "한", "20", ".”")
-  targetKeys: string; // 이 칸을 완성하기 위해 입력되어야 하는 영문 자판 조인값 (예: "gks", "20", ".’")
-  type: "normal" | "number" | "open-quote" | "close-quote" | "combined";
+  targetText: string;
+  targetKeys: string;
+  type:
+    | "normal"
+    | "number"
+    | "open-quote"
+    | "close-quote"
+    | "combined"
+    | "comma-dot";
 }
 
-import { convertSentenceToKeyArray } from "./util"; // 기존에 만들어둔 자판 분해 함수
+function preprocessSentence(sentence: string): string {
+  return sentence
+    .replace(/([.,?!'’"”])\s+/g, "$1")
+    .replace(/\s+([.,?!'’"”])/g, "$1");
+}
 
-export function formatToWongoziCells(sentence: string): WongoziCell[] {
-  const chars = sentence.split("");
+export function formatToWongoziCells(rawSentence: string): WongoziCell[] {
+  // 1. 먼저 원고지 문장 부호 규칙에 맞게 띄어쓰기를 전처리(수정)합니다.
+  const cleanedSentence = preprocessSentence(rawSentence);
+
+  const chars = cleanedSentence.split("");
   const cells: WongoziCell[] = [];
   let i = 0;
 
-  const isOpenQuote = (c: string) =>
-    c === "‘" || c === "“" || c === '"' || c === "'";
-  const isCloseQuote = (c: string) =>
-    c === "’" || c === "”" || c === '"' || c === "'";
+  // 부호 판별 헬퍼
+  const isOpenQuote = (c: string) => c === "‘" || c === "“";
+  const isCloseQuote = (c: string) => c === "’" || c === "”";
+  const isBigQuote = (c: string) => c === '"';
+  const isSmallQuote = (c: string) => c === "'";
   const isDotOrComma = (c: string) => c === "." || c === ",";
+
+  const bigQuoteIndexs = cleanedSentence.split("").reduce((acc, el, idx) => {
+    if (el === '"') acc.push(idx);
+    return acc;
+  }, [] as number[]);
+  const smallQuoteIndexs = cleanedSentence.split("").reduce((acc, el, idx) => {
+    if (el === "'") acc.push(idx);
+    return acc;
+  }, [] as number[]);
 
   while (i < chars.length) {
     const char = chars[i];
     const nextChar = chars[i + 1];
 
     // -----------------------------------------------------------------
-    // 💡 [새 규칙 2] 줄의 맨 앞(20의 배수 자리)이 띄어쓰기일 경우 생략
+    // [규칙 B] 온점/반점 + 따옴표 결합 (여는 따옴표든 닫는 따옴표든 한 칸에 동거)
     // -----------------------------------------------------------------
-    // 현재까지 쌓인 cells의 개수가 20의 배수(0, 20, 40...)를 이룰 때
-    // 현재 검사 중인 문자가 공백(' ')이라면, 원고지 칸을 만들지 않고 그냥 패스합니다.
-    if (char === " " && cells.length % 20 === 0) {
-      i += 1;
-      continue;
-    }
+    // 다음 글자(nextChar)가 어떤 형태의 따옴표(유니코드 따옴표 또는 일반 따옴표)든 무조건 참
+    const isNextAnyQuote =
+      isCloseQuote(nextChar) ||
+      isOpenQuote(nextChar) ||
+      isBigQuote(nextChar) ||
+      isSmallQuote(nextChar);
 
-    if (isDotOrComma(char) && nextChar && isCloseQuote(nextChar)) {
-      const combinedText = char + nextChar; // 예: '."' 또는 '.’'
+    if (isDotOrComma(char) && nextChar && isNextAnyQuote) {
+      const combinedText = char + nextChar; // 예: '."' 또는 '.,' 등
       const combinedKeys =
         convertSentenceToKeyArray(char).join("") +
         convertSentenceToKeyArray(nextChar).join("");
@@ -65,62 +65,29 @@ export function formatToWongoziCells(sentence: string): WongoziCell[] {
       cells.push({
         targetText: combinedText,
         targetKeys: combinedKeys,
-        type: "combined", // 💡 여기에 'normal' 대신 'combined'가 확실하게 들어가야 합니다!
+        type: "combined", // UI단에서 쪼개서 그려줄 타입
       });
 
-      i += 2; // 2글자 소비
-
-      // [새 규칙 1-A] 결합 부호(".”") 바로 뒤에 또 공백이 오면 건너뛰기
-      if (chars[i] === " ") {
-        i += 1;
-      }
+      i += 2; // 온점과 따옴표 두 글자를 한 번에 소비했으므로 2칸 전진
       continue;
     }
 
-    // 🌟 조건 1: 온점/반점 + 닫는 따옴표 결합 (한 칸 동거)
-    if (isDotOrComma(char) && nextChar && isCloseQuote(nextChar)) {
-      const combinedText = char + nextChar;
-      const combinedKeys =
-        convertSentenceToKeyArray(char).join("") +
-        convertSentenceToKeyArray(nextChar).join("");
-
-      cells.push({
-        targetText: combinedText,
-        targetKeys: combinedKeys,
-        type: "combined",
-      });
-
-      i += 2; // 2글자 소비
-
-      // -----------------------------------------------------------------
-      // 💡 [새 규칙 1-A] 결합 부호(".”") 바로 뒤에 또 공백이 오면 건너뛰기
-      // -----------------------------------------------------------------
-      if (chars[i] === " ") {
-        i += 1;
-      }
-      continue;
-    }
-
-    // 단독 온점이나 반점일 때 처리
+    // -----------------------------------------------------------------
+    // [규칙 C] 단독 온점이나 반점 처리 (뒤에 따옴표가 없는 경우)
+    // -----------------------------------------------------------------
     if (isDotOrComma(char)) {
       cells.push({
         targetText: char,
         targetKeys: convertSentenceToKeyArray(char).join(""),
         type: "comma-dot",
       });
-
       i += 1;
-
-      // -----------------------------------------------------------------
-      // 💡 [새 규칙 1-B] 단독 온점/반점 바로 뒤에 공백이 오면 건너뛰기
-      // -----------------------------------------------------------------
-      if (chars[i] === " ") {
-        i += 1;
-      }
       continue;
     }
 
-    // 🌟 조건 2: 숫자 연속 처리 (최대 두 자리 묶음)
+    // -----------------------------------------------------------------
+    // [규칙 D] 숫자 연속 처리 (최대 두 자리 묶음)
+    // -----------------------------------------------------------------
     if (char !== " " && !isNaN(Number(char))) {
       let numBuffer = char;
       if (nextChar && !isNaN(Number(nextChar))) {
@@ -142,8 +109,14 @@ export function formatToWongoziCells(sentence: string): WongoziCell[] {
       continue;
     }
 
-    // 🌟 조건 3-1: 여는 따옴표 (오른쪽 상단 배치)
-    if (isOpenQuote(char) && (i === 0 || chars[i - 1] === " ")) {
+    // -----------------------------------------------------------------
+    // [규칙 E-1] 여는 따옴표 (오른쪽 상단 배치)
+    // -----------------------------------------------------------------
+    if (
+      isOpenQuote(char) ||
+      (isBigQuote(char) && bigQuoteIndexs.indexOf(i) % 2 === 0) ||
+      (isSmallQuote(char) && smallQuoteIndexs.indexOf(i) % 2 === 0)
+    ) {
       cells.push({
         targetText: char,
         targetKeys: convertSentenceToKeyArray(char).join(""),
@@ -153,8 +126,14 @@ export function formatToWongoziCells(sentence: string): WongoziCell[] {
       continue;
     }
 
-    // 🌟 조건 3-2: 닫는 따옴표 (왼쪽 상단 배치)
-    if (isCloseQuote(char)) {
+    // -----------------------------------------------------------------
+    // [규칙 E-2] 닫는 따옴표 (왼쪽 상단 배치)
+    // -----------------------------------------------------------------
+    if (
+      isCloseQuote(char) ||
+      (isBigQuote(char) && bigQuoteIndexs.indexOf(i) % 2 === 1) ||
+      (isSmallQuote(char) && smallQuoteIndexs.indexOf(i) % 2 === 1)
+    ) {
       cells.push({
         targetText: char,
         targetKeys: convertSentenceToKeyArray(char).join(""),
@@ -164,7 +143,9 @@ export function formatToWongoziCells(sentence: string): WongoziCell[] {
       continue;
     }
 
-    // 🌟 조건 4: 일반 글자 및 규칙에 걸리지 않은 공백 처리
+    // -----------------------------------------------------------------
+    // [규칙 F] 일반 글자 및 공백 처리
+    // -----------------------------------------------------------------
     cells.push({
       targetText: char,
       targetKeys: convertSentenceToKeyArray(char).join(""),

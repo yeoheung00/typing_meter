@@ -1,32 +1,136 @@
 import { useState, useEffect, useMemo } from "react";
 import { TYPING_SENTENCES } from "./data/sentences";
-import {
-  convertSentenceToKeyArray,
-  convertKeyArrayToSentence,
-} from "./util/util";
-import { format, formatToWongoziCells, getCellStyle } from "./util/format";
+import { convertKeyArrayToSentence } from "./util/converter";
+import { formatToWongoziCells, getCellStyle } from "./util/format";
 import "./App.css";
+
+interface WongoziCell {
+  targetText: string;
+  targetKeys?: string;
+  type:
+    | "normal"
+    | "combined"
+    | "number"
+    | "open-quote"
+    | "close-quote"
+    | "margin";
+  originalType?: string;
+  absoluteIndex?: number; // 💡 버그 해결을 위한 절대 인덱스 식별자 추가
+}
+
+// 한글 자소 분리 헬퍼 함수
+function disassembleHangul(char: string): string {
+  if (!char) return "";
+  const code = char.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return char;
+
+  const hangulIndex = code - 0xac00;
+  const cho = Math.floor(hangulIndex / 588);
+  const jung = Math.floor((hangulIndex % 588) / 28);
+  const jong = hangulIndex % 28;
+
+  const CHOSUNG = [
+    "ㄱ",
+    "ㄲ",
+    "ㄴ",
+    "ㄷ",
+    "ㄸ",
+    "ㄹ",
+    "ㅁ",
+    "ㅂ",
+    "ㅃ",
+    "ㅅ",
+    "ㅆ",
+    "ㅇ",
+    "ㅈ",
+    "ㅉ",
+    "ㅊ",
+    "ㅋ",
+    "ㅌ",
+    "ㅍ",
+    "ㅎ",
+  ];
+  const JUNGSUNG = [
+    "ㅏ",
+    "ㅐ",
+    "ㅑ",
+    "ㅒ",
+    "ㅓ",
+    "ㅔ",
+    "ㅕ",
+    "ㅖ",
+    "ㅗ",
+    "ㅘ",
+    "ㅙ",
+    "ㅚ",
+    "ㅛ",
+    "ㅜ",
+    "ㅝ",
+    "ㅞ",
+    "ㅟ",
+    "ㅠ",
+    "ㅡ",
+    "ㅢ",
+    "ㅣ",
+  ];
+  const JONGSUNG = [
+    "",
+    "ㄱ",
+    "ㄲ",
+    "ㄳ",
+    "ㄴ",
+    "ㄴㅈ",
+    "ㄴㅎ",
+    "ㄷ",
+    "ㄹ",
+    "ㄹㄱ",
+    "ㄹㅁ",
+    "ㄹㅂ",
+    "ㄹㅅ",
+    "ㄹㅌ",
+    "ㄹㅍ",
+    "ㄹㅎ",
+    "ㅁ",
+    "ㅂ",
+    "ㅄ",
+    "ㅅ",
+    "ㅆ",
+    "ㅇ",
+    "ㅈ",
+    "ㅊ",
+    "ㅋ",
+    "ㅌ",
+    "ㅍ",
+    "ㅎ",
+  ];
+
+  return CHOSUNG[cho] + JUNGSUNG[jung] + (JONGSUNG[jong] ? JONGSUNG[jong] : "");
+}
 
 function App() {
   const [index, setIndex] = useState(0);
   const [userKeys, setUserKeys] = useState<string[]>([]);
 
   const currentSentence = TYPING_SENTENCES[index];
-  const targetKeys = useMemo(
-    () => convertSentenceToKeyArray(currentSentence),
-    [currentSentence],
+
+  // 💡 1차원 원본 셀 배열을 추출한 뒤, 필터링 및 공백 생략 전 '순수 본문 절대 인덱스'를 마킹합니다.
+  const wongoziCells = useMemo(() => {
+    const rawCells = formatToWongoziCells(currentSentence) as WongoziCell[];
+    return rawCells.map((cell, idx) => ({ ...cell, absoluteIndex: idx }));
+  }, [currentSentence]);
+
+  const convertedUserSentence = useMemo(
+    () => convertKeyArrayToSentence(userKeys),
+    [userKeys],
   );
 
-  // 💡 내가 지금까지 입력한 자판 배열을 실제 한글 문장 문자열로 변환합니다.
-  const currentUserSentence = convertKeyArrayToSentence(userKeys);
-  const wongoziUserCells = formatToWongoziCells(currentUserSentence);
+  const userWongoziCells = useMemo(() => {
+    const rawCells = formatToWongoziCells(
+      convertedUserSentence,
+    ) as WongoziCell[];
+    return rawCells.map((cell, idx) => ({ ...cell, absoluteIndex: idx }));
+  }, [convertedUserSentence]);
 
-  const handleNextSentence = () => {
-    setIndex((p) => (p + 1) % TYPING_SENTENCES.length);
-    setUserKeys([]);
-  };
-
-  // 전역 keydown 이벤트 로직 (기존과 동일)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.altKey || e.metaKey) return;
@@ -39,331 +143,536 @@ function App() {
         return;
       }
 
-      let pressedKey = "";
-      if (e.code === "Space") pressedKey = " ";
-      else if (e.code.startsWith("Key")) {
-        const char = e.code.replace("Key", "");
-        pressedKey = e.shiftKey ? char.toUpperCase() : char.toLowerCase();
-      } else pressedKey = e.key.toLowerCase();
+      // 스페이스바 입력 제어 가드 (다음에 올 문자가 따옴표 계열이면 차단)
+      if (e.key === " " || e.code === "Space") {
+        const nextInputCellIndex = userWongoziCells.length;
+        const targetCellForNextInput = wongoziCells[nextInputCellIndex];
 
-      if (!pressedKey) return;
+        if (targetCellForNextInput) {
+          const nextTargetText = targetCellForNextInput.targetText;
+          if (
+            /['"“”‘’]/.test(nextTargetText) ||
+            targetCellForNextInput.type === "open-quote" ||
+            targetCellForNextInput.type === "close-quote"
+          ) {
+            e.preventDefault();
+            return;
+          }
+        }
 
-      setUserKeys((prev) => {
-        const nextKeys = [...prev, pressedKey];
-        return nextKeys;
-      });
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [targetKeys]);
-
-  return (
-    // 짚신/한지 느낌의 부드러운 베이지색 배경톤
-    <div className="min-h-screen bg-stone-100 flex flex-col items-center justify-center p-6 font-serif select-none text-stone-800">
-      <div className="w-fit bg-[#fcfbf7] rounded-xl shadow-xl p-12 border border-stone-200/60 relative">
-        {/* 타이틀 바 */}
-        <h1 className="text-center text-lg font-bold tracking-widest text-emerald-800 mb-12 border-b-2 border-emerald-800 pb-4">
-          綠 陰 方 草 (녹음방초) : 원고지 타자연습
-        </h1>
-
-        {/* 📝 💡 원고지 컨테이너 (좌우 보더 1px, 상단 지붕선 2px) */}
-        <div className="grid grid-cols-20 rounded-lg border-x border-t-2 border-emerald-600/30 overflow-hidden">
-          {(() => {
-            // 1. [가-3] 정답 문장을 원고지 셀 배열로 변환
-            const wongoziCells = formatToWongoziCells(currentSentence);
-            console.log(wongoziCells);
-            // 2. [가-4] 20의 배수(한 줄)를 맞추기 위해 부족한 공실(Dummy) 개수 계산
-            const remainder = wongoziCells.length % 20;
-            const missingCount = remainder === 0 ? 0 : 20 - remainder;
-            console.log(missingCount);
-
-            // 3. 정답 셀 뒤에 공란 셀 패딩하여 최종 원고지 격자 데이터 완성
-            const finalCells = [
-              ...wongoziCells,
-              ...Array(missingCount)
-                .fill(null)
-                .map(() => ({
-                  targetText: " ",
-                  targetKeys: " ",
-                  type: "normal" as const,
-                })),
-            ];
-
-            // 4. [나] 실시간 스트림 파싱을 위한 포인터(인덱스) 바구니 준비
-            // userKeys: 영문 자판 스트림 (예: ["g", "k", "s", "d"])
-            let keyStreamPointer = 0;
-            let isCursorPlaced = false; // 커서를 한 번만 그리기 위한 플래그
-
-            // 5. [가-5] 가공된 finalCells를 기반으로 대망의 격자 렌더링 시작
-            return finalCells.map((cell, charIndex) => {
-              const isDummyCell = charIndex >= wongoziCells.length;
-
-              // --- [나-4] 현재 칸에 해당하는 유저 입력 키 조각 잘라오기 ---
-              // 정답 칸이 요구하는 자판 개수만큼 유저 전체 스트림에서 슬라이스
-              const requiredKeyLength = cell.targetKeys.length;
-              const userKeySlice = userKeys.slice(
-                keyStreamPointer,
-                keyStreamPointer + requiredKeyLength,
-              );
-
-              // 사용한 만큼 전체 스트림 포인터를 밀어줍니다 (자연스러운 오타 전이)
-              keyStreamPointer += requiredKeyLength;
-
-              // 잘라온 영문 키 배열을 합쳐서 문자열로 변환 (예: ["g", "k"] -> "gk")
-              const userKeysString = userKeySlice.join("");
-              const targetKeysString = cell.targetKeys;
-
-              // 잘라온 키를 한글 문장으로 복원 (완료된 칸 비교용)
-              const userCellText = convertKeyArrayToSentence(userKeySlice);
-              const targetCellText = cell.targetText;
-
-              // --- 실시간 상태 조건 조율 ---
-              // 유저가 이 칸에 키를 하나라도 입력했는가?
-              const hasInput = userKeySlice.length > 0;
-              // 이 칸의 요구 자판 수가 꽉 찼는가? (완료되었는가)
-              const isFilled = userKeySlice.length === requiredKeyLength;
-
-              // 💡 [커서 판단] 아직 커서가 안 놓였고, 유저 스트림이 다 안 찬 칸이 바로 현재 입력 중인 칸!
-              const isCurrentCursor =
-                !isDummyCell && !isCursorPlaced && !isFilled;
-              if (isCurrentCursor) {
-                isCursorPlaced = true; // 커서 중복 방지
-              }
-
-              // 💡 [유저님이 구상하신 소름 돋는 컬러 판정 알고리즘]
-              let isError = false;
-              if (!isDummyCell && hasInput) {
-                if (isCurrentCursor) {
-                  // 현재 입력 중인 칸 ➡️ startsWith 로우레벨 자판 스트림 실시간 비교!
-                  isError = !targetKeysString.startsWith(userKeysString);
-                } else {
-                  // 이미 지나간 완료된 칸 ➡️ 최종 복원된 텍스트 1:1 엄격 비교! ("2" vs "20" 오타 처리)
-                  isError = userCellText !== targetCellText;
-                }
-              }
-
-              return (
-                <div
-                  key={charIndex}
-                  // 가로선 2px, 세로선 1px 스펙 유지
-                  className={`w-12 h-12 border-b-2 border-r border-emerald-600/30 relative flex items-center justify-center font-medium transition-all
-                    ${isCurrentCursor ? "bg-emerald-50/70 ring-2 ring-emerald-500/50 z-10" : ""}
-                    ${isDummyCell ? "bg-stone-50/20" : ""}
-                  `}
-                >
-                  {/* 1. 배정된 정답 가이드 글자 레이어 (가짜 빈칸이나 유저가 입력 완료한 칸은 숨김) */}
-                  {!isDummyCell && !isFilled && (
-                    <div className="absolute inset-0 w-full h-full text-stone-500 pointer-events-none select-none">
-                      {cell.type === "combined" ? (
-                        <>
-                          <span className="absolute left-1.5 bottom-3.5">
-                            {targetCellText[0]}
-                          </span>
-                          <span className="absolute right-1.5 bottom-3">
-                            {targetCellText[1]}
-                          </span>
-                        </>
-                      ) : (
-                        <span
-                          className={`absolute ${getCellStyle(cell.type)} flex items-center justify-center text-center w-full h-full`}
-                        >
-                          {targetCellText === " " ? "" : targetCellText}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 2. 유저 입력 실시간 글자 레이어 (오타면 붉은색, 정상이면 검정색) */}
-                  {!isDummyCell && hasInput && (
-                    <div className="absolute inset-0 w-full h-full z-10 animate-[fadeIn_0.15s_ease-out]">
-                      {cell.type === "combined" ? (
-                        <div
-                          className={`w-full h-full relative ${isError ? "text-rose-600 bg-rose-50/50" : "text-stone-900"}`}
-                        >
-                          <span className="absolute left-1.5 bottom-3.5 text-2xl font-bold">
-                            {userCellText[0] || ""}
-                          </span>
-                          <span className="absolute right-1.5 bottom-3 text-2xl font-bold">
-                            {userCellText[1] || ""}
-                          </span>
-                        </div>
-                      ) : (
-                        <span
-                          className={`absolute ${getCellStyle(cell.type)} font-bold flex items-center justify-center w-full h-full
-                          ${isError ? "text-rose-600 bg-rose-50/50" : "text-stone-900"}
-                        `}
-                        >
-                          {userCellText === " " ? " " : userCellText}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 3. 현재 입력 중인 칸 하단에 깜빡이는 원고지 커서 효과 */}
-                  {isCurrentCursor && (
-                    <span className="absolute bottom-1 w-8 h-[3px] bg-emerald-600 animate-[blink_1s_infinite]" />
-                  )}
-                </div>
-              );
-            });
-          })()}
-        </div>
-
-        {/* 하단 정보 바 및 조작 버튼 */}
-        <div className="flex justify-between items-center border-t border-stone-200 mt-12 pt-6 text-xs text-stone-500 font-sans">
-          <div>
-            원고지 자판 진행도:{" "}
-            <span className="text-emerald-700 font-bold">
-              {userKeys.length}
-            </span>{" "}
-            타점 누적
-          </div>
-          <button
-            onClick={handleNextSentence}
-            className="px-4 py-2 bg-stone-800 text-stone-100 hover:bg-stone-700 rounded text-xs transition-all font-serif"
-          >
-            다음 문장 넘기기 ➡️
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/*
-function App() {
-  const [index, setIndex] = useState(0);
-  const [userKeys, setUserKeys] = useState<string[]>([]); // 유저가 누른 키 저장소
-
-  const currentSentence = TYPING_SENTENCES[index];
-  const targetKeys = convertSentenceToKeyArray(currentSentence);
-
-  const handleNextSentence = () => {
-    setIndex((p) => (p + 1) % TYPING_SENTENCES.length);
-    setUserKeys([]); // 다음 문장으로 갈 때 버퍼 비우기
-  };
-
-  // 키보드 하드웨어 입력 전역 감지
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 시스템 단축키 무시 (Ctrl, Alt, Command, F5 등)
-      if (e.ctrlKey || e.altKey || e.metaKey) return;
-
-      // 글자 입력과 상관없는 기능키 무시 (단, Backspace와 Space는 허용)
-      if (e.key.length > 1 && e.key !== "Backspace" && e.key !== "Spacebar") {
-        return;
+        const lastUserCell = userWongoziCells[userWongoziCells.length - 1];
+        if (lastUserCell) {
+          const lastChar = lastUserCell.targetText.slice(-1);
+          const isPunctuation = /[.,?!'"“”指標‘’]/.test(lastChar);
+          const isSpace = lastChar === " ";
+          if (isPunctuation || isSpace) {
+            e.preventDefault();
+            return;
+          }
+        }
       }
 
-      // 1. 지우기(Backspace) 처리
-      if (e.key === "Backspace") {
-        e.preventDefault();
-        setUserKeys((prev) => prev.slice(0, -1));
-        return;
-      }
-
-      // 2. 입력 키 추출
-      // 한글 입력 상태라 하더라도, 대다수 모던 브라우저의 keydown 이벤트에서
-      // 영문 자판 위치 값을 가장 확실하게 가져오는 방법은 e.code를 소문자화 하거나 변환하는 것입니다.
-      // e.code는 'KeyQ', 'KeyA', 'Space' 형태로 들어오므로 앞의 'Key'를 떼어내 쿼티 값을 확보합니다.
       let pressedKey = "";
-      if (e.code.startsWith("Key")) {
-        // Shift 여부에 따라 대소문자 구분 (ㅃ, ㄸ, ㅉ, ㄲ, ㅆ 처리용)
-        const char = e.code.replace("Key", "");
-        pressedKey = e.shiftKey ? char.toUpperCase() : char.toLowerCase();
-      } else if (e.code === "Space") {
+      if (e.code === "Space") {
         pressedKey = " ";
+      } else if (e.code.startsWith("Key")) {
+        const char = e.code.replace("Key", "");
+        pressedKey = e.shiftKey ? char.toUpperCase() : char.toLowerCase();
       } else {
-        // 기호 나 숫자 등은 e.key 그대로 차용
         pressedKey = e.key.toLowerCase();
       }
 
       if (!pressedKey) return;
-
-      // 3. 입력 상태 업데이트 및 문장 완료 판정
-      setUserKeys((prev) => {
-        const nextKeys = [...prev, pressedKey];
-
-        // 정답 자판 시퀀스를 오타 없이 완벽히 끝까지 다 쳤다면 즉시 다음 문장으로!
-        if (
-          nextKeys.length === targetKeys.length &&
-          nextKeys.join("") === targetKeys.join("")
-        ) {
-          handleNextSentence();
-          return [];
-        }
-
-        return nextKeys;
-      });
+      setUserKeys((prev) => [...prev, pressedKey]);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [targetKeys]);
+  }, [userWongoziCells, wongoziCells]);
+
+  const handleNextSentence = () => {
+    setIndex((p) => (p + 1) % TYPING_SENTENCES.length);
+    setUserKeys([]);
+  };
+
+  // 💡 매트릭스 빌더 내에서 여백으로 밀려나도 absoluteIndex가 안전하게 유실되지 않도록 전파합니다.
+  const buildWongoziMatrix = (cells: WongoziCell[]) => {
+    const matrix: WongoziCell[][] = [];
+    let currentRow: WongoziCell[] = [];
+    let currentRowCount = 0;
+
+    const startNewRow = () => {
+      currentRow = [
+        { targetText: "", type: "margin" },
+        { targetText: "", type: "margin" },
+      ];
+      currentRowCount = 0;
+    };
+
+    const endCurrentRow = (cell1?: WongoziCell, cell2?: WongoziCell) => {
+      currentRow.push(
+        cell1
+          ? { ...cell1, type: "margin" as const, originalType: cell1.type }
+          : { targetText: "", type: "margin" },
+      );
+      currentRow.push(
+        cell2
+          ? { ...cell2, type: "margin" as const, originalType: cell2.type }
+          : { targetText: "", type: "margin" },
+      );
+      matrix.push(currentRow);
+      currentRow = [];
+    };
+
+    const isPunctuationCell = (c: WongoziCell | undefined) => {
+      if (!c) return false;
+      return (
+        c.type === "combined" ||
+        c.type === "open-quote" ||
+        c.type === "close-quote" ||
+        /[.,?!'"指标‘’]/.test(c.targetText)
+      );
+    };
+
+    startNewRow();
+
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+
+      if (currentRowCount === 0 && cell.targetText === " ") {
+        continue;
+      }
+
+      if (currentRowCount === 19) {
+        const nextCell = cells[i + 1];
+        const nextNextCell = cells[i + 2];
+
+        if (isPunctuationCell(nextCell) && isPunctuationCell(nextNextCell)) {
+          currentRow.push(cell);
+          endCurrentRow(nextCell, nextNextCell);
+          i += 2;
+          startNewRow();
+          continue;
+        }
+
+        if (isPunctuationCell(nextCell)) {
+          currentRow.push(cell);
+          endCurrentRow(nextCell, undefined);
+          i++;
+          startNewRow();
+          continue;
+        }
+      }
+
+      currentRow.push(cell);
+      currentRowCount++;
+
+      if (currentRowCount === 20) {
+        endCurrentRow(undefined, undefined);
+        startNewRow();
+      }
+    }
+
+    if (currentRowCount > 0) {
+      while (currentRowCount < 20) {
+        currentRow.push({ targetText: " ", type: "normal" });
+        currentRowCount++;
+      }
+      endCurrentRow(undefined, undefined);
+    }
+
+    if (matrix.length === 0) {
+      matrix.push([
+        { targetText: "", type: "margin" },
+        { targetText: "", type: "margin" },
+        ...Array(20)
+          .fill(null)
+          .map(() => ({ targetText: " ", type: "normal" })),
+        { targetText: "", type: "margin" },
+        { targetText: "", type: "margin" },
+      ]);
+    }
+
+    return matrix;
+  };
+
+  const targetMatrix = useMemo(
+    () => buildWongoziMatrix(wongoziCells),
+    [wongoziCells],
+  );
+  const userMatrix = useMemo(
+    () => buildWongoziMatrix(userWongoziCells),
+    [userWongoziCells],
+  );
+
+  // 💡 [버그 완치판 하이브리드 결합 엔진] 고유 절대 식별자(absoluteIndex) 비교 체계 구축
+  const finalHybridMatrix = useMemo(() => {
+    let totalUserCellsCount = userWongoziCells.length;
+
+    return targetMatrix.map((targetRow) => {
+      return targetRow.map((targetCell) => {
+        // 1. 만약 정답 매트릭스의 해당 셀에 인덱스가 없는 무의미한 기본 빈 여백 마진 칸이라면 가이드로 처리
+        if (targetCell.absoluteIndex === undefined) {
+          return {
+            ...targetCell,
+            source: "target" as const,
+            isError: false,
+            isCurrent: false,
+            displayTarget: true,
+          };
+        }
+
+        const currentCellIdx = targetCell.absoluteIndex;
+
+        // 2. 유저가 입력한 매트릭스 전역에서 동일한 absoluteIndex를 가진 유저 세포를 다이렉트로 추적 검색
+        let userCell: WongoziCell | null = null;
+        for (const row of userMatrix) {
+          const found = row.find((c) => c.absoluteIndex === currentCellIdx);
+          if (found) {
+            userCell = found;
+            break;
+          }
+        }
+
+        // 3. 유저가 타이핑을 거쳐간 고유 영역인지 절대 인덱스로 명확히 판정
+        const hasBeenVisited = currentCellIdx < totalUserCellsCount;
+        const isCurrentActiveCell =
+          currentCellIdx === totalUserCellsCount - 1 && totalUserCellsCount > 0;
+
+        if (hasBeenVisited && userCell) {
+          // 규칙 3: 글자 자리인데 유저가 스페이스바로 넘겼을 때 (공백 오타)
+          if (userCell.targetText === " " && targetCell.targetText !== " ") {
+            return {
+              ...userCell,
+              source: "user" as const,
+              isError: true,
+              isCurrent: false,
+              displayTarget: false,
+            };
+          }
+
+          if (isCurrentActiveCell) {
+            // 규칙 2: 현재 실시간 타이핑 중인 최전선 칸 (자소 진행 검사)
+            const targetDecom = disassembleHangul(targetCell.targetText);
+            const userDecom = disassembleHangul(userCell.targetText);
+            const isCorrectProgress = targetDecom.startsWith(userDecom);
+
+            return {
+              ...userCell,
+              source: "user" as const,
+              isError: !isCorrectProgress,
+              isCurrent: true,
+              displayTarget: false,
+            };
+          } else {
+            // 규칙 1: 이미 타이핑하고 지나간 과거의 칸 (1:1 완벽 대조)
+            const isError = userCell.targetText !== targetCell.targetText;
+            return {
+              ...userCell,
+              source: "user" as const,
+              isError,
+              isCurrent: false,
+              displayTarget: false,
+            };
+          }
+        } else {
+          // 🛡️ 아직 타이핑이 도달하지 않은 미래의 칸은 오타 판정 절대 차단 (가이드 회색 유지)
+          return {
+            ...targetCell,
+            source: "target" as const,
+            isError: false,
+            isCurrent: false,
+            displayTarget: true,
+          };
+        }
+      });
+    });
+  }, [targetMatrix, userMatrix, userWongoziCells]);
+
+  // 검증용 기본 격자 스타일 제어기
+  const getCellGridStyle = (
+    cellType: string,
+    isTarget: boolean,
+    columnIndex: number,
+  ) => {
+    const baseStyle: React.CSSProperties = {
+      aspectRatio: "1/1",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "1.25rem",
+      position: "relative",
+    };
+
+    if (cellType === "margin") {
+      return {
+        ...baseStyle,
+        border: "none",
+        backgroundColor: "transparent",
+        color: isTarget ? "#cbd5e1" : "#2563eb",
+        fontWeight: isTarget ? "normal" : "bold",
+      };
+    }
+
+    const themeColor = isTarget ? "#0d9488" : "#2563eb";
+    return {
+      ...baseStyle,
+      borderRight: "1px solid #cbd5e1",
+      borderBottom: `2px solid ${themeColor}`,
+      borderLeft: columnIndex === 2 ? "1px solid #cbd5e1" : undefined,
+      backgroundColor: isTarget ? "#fff" : "#eff6ff",
+      color: isTarget ? "#94a3b8" : "#1e3a8a",
+      fontWeight: isTarget ? "normal" : "bold",
+    };
+  };
+
+  // 🏆 하이브리드 최종 결과창 전용 스타일 제어기
+  const getHybridCellStyle = (cell: any, columnIndex: number) => {
+    const baseStyle: React.CSSProperties = {
+      aspectRatio: "1/1",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "1.25rem",
+      position: "relative",
+      fontWeight: cell.source === "user" ? "bold" : "normal",
+    };
+
+    if (cell.type === "margin") {
+      return {
+        ...baseStyle,
+        border: "none",
+        backgroundColor: "transparent",
+        color: cell.isError
+          ? "#dc2626"
+          : cell.source === "user"
+            ? "#111"
+            : "#94a3b8",
+      };
+    }
+
+    let borderTheme = "#059669";
+    let bgTheme = "#fff";
+    let textTheme = "#94a3b8";
+
+    if (cell.source === "user") {
+      if (cell.isError) {
+        bgTheme = "#fee2e2";
+        textTheme = "#dc2626";
+      } else {
+        bgTheme = "#fff";
+        textTheme = "#111";
+      }
+    }
+
+    return {
+      ...baseStyle,
+      borderRight: "1px solid #cbd5e1",
+      borderBottom: `2px solid ${borderTheme}`,
+      borderLeft: columnIndex === 2 ? "1px solid #cbd5e1" : undefined,
+      backgroundColor: bgTheme,
+      color: textTheme,
+    };
+  };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 font-sans select-none text-white">
-      <div className="max-w-3xl w-full bg-slate-800 rounded-2xl shadow-2xl p-10 border border-slate-700/50">
-        <h1 className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-10 text-center">
-          ⌨️ 로우 레벨 자판 배열 타자 엔진 v1.0
+    <div
+      style={{
+        padding: "40px",
+        backgroundColor: "#f5f5f3",
+        minHeight: "100vh",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          backgroundColor: "#fff",
+          padding: "40px",
+          borderRadius: "12px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h1
+          style={{
+            textAlign: "center",
+            color: "#115e59",
+            marginBottom: "40px",
+            letterSpacing: "2px",
+          }}
+        >
+          綠 陰 方 草 (녹음방초) : 고유 인덱스 싱크 교정 스크린
         </h1>
 
-        <div className="text-2xl font-medium tracking-wide leading-relaxed mb-8 text-left bg-slate-950 p-6 rounded-xl border border-slate-800">
-          <p className="text-slate-400 select-none">
-            {TYPING_SENTENCES[index]}
-          </p>
-        </div>
-
-        <div className="text-2xl font-menium tracking-wide leading-relaxed mb-8 text-left bg-slate-950 p-6 rounded-xl border border-slate-800">
-          <p className="text-slate-400 select-none">
-            {convertKeyArrayToSentence(userKeys)}
-          </p>
-        </div>
-
-        <div className="w-full min-h-20 bg-slate-950 px-6 py-4 rounded-xl border border-slate-800 text-left font-mono overflow-x-auto mb-8 flex flex-wrap items-center gap-1">
-          {targetKeys.map((targetKey, kIndex) => {
-            let boxClass = "border-slate-800 text-slate-600 bg-slate-900/50"; // 아직 입력 안 함
-
-            if (kIndex < userKeys.length) {
-              if (userKeys[kIndex] === targetKey) {
-                boxClass =
-                  "bg-emerald-950/40 text-emerald-400 border-emerald-800/60 font-bold"; // 정확한 타이핑
-              } else {
-                boxClass =
-                  "bg-rose-950/40 text-rose-400 border-rose-800/60 font-bold animate-shake"; // 오타 자판 발생
-              }
-            }
-
-            return (
-              <div
-                key={kIndex}
-                className={`min-w-7 h-9 border rounded flex flex-col items-center justify-center text-xs px-1 font-mono transition-all ${boxClass}`}
-              >
-                <span className="opacity-40 scale-75 uppercase">
-                  {targetKey === " " ? "␣" : targetKey}
-                </span>
-              </div>
-            );
-          })}
-
-          <span className="w-0.5 h-5 bg-blue-400 ml-1 animate-pulse" />
-        </div>
-
-        <div className="flex justify-between items-center border-t border-slate-800 pt-6">
-          <span className="text-xs text-slate-500 font-medium font-mono">
-            STREAM BUFFER COUNT: {userKeys.length} / {targetKeys.length}
-          </span>
-          <button
-            onClick={() => setIndex((p) => (p + 1) % TYPING_SENTENCES.length)}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg active:scale-95 transition-all shadow-md border border-slate-600"
+        {/* 🟢 AREA 1: 정답 가이드 원고지 덤프 */}
+        <section style={{ marginBottom: "25px" }}>
+          <h3 style={{ color: "#0d9488", marginBottom: "12px" }}>
+            [🟢 정답 문장 조판 결과 (모든 엘리먼트 유지 1)]
+          </h3>
+          <div
+            style={{
+              borderTop: "2px solid #0d9488",
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
-            SKIP ➡️
+            {targetMatrix.map((row, rowIndex) => (
+              <div
+                key={`target-row-${rowIndex}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(24, 1fr)",
+                }}
+              >
+                {row.map((cell: any, colIndex) => (
+                  <div
+                    key={`target-c-${rowIndex}-${colIndex}`}
+                    style={getCellGridStyle(cell.type, true, colIndex)}
+                  >
+                    <span
+                      className={getCellStyle(cell.originalType || cell.type)}
+                    >
+                      {cell.targetText}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 🔵 AREA 2: 유저 실시간 입력 원고지 덤프 */}
+        <section style={{ marginBottom: "50px" }}>
+          <h3 style={{ color: "#2563eb", marginBottom: "12px" }}>
+            [🔵 유저 입력 조판 결과 (모든 엘리먼트 유지 2)]
+          </h3>
+          <div
+            style={{
+              borderTop: "2px solid #2563eb",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {userMatrix.map((row, rowIndex) => (
+              <div
+                key={`user-row-${rowIndex}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(24, 1fr)",
+                }}
+              >
+                {row.map((cell: any, colIndex) => (
+                  <div
+                    key={`user-c-${rowIndex}-${colIndex}`}
+                    style={getCellGridStyle(cell.type, false, colIndex)}
+                  >
+                    <span
+                      className={getCellStyle(cell.originalType || cell.type)}
+                    >
+                      {cell.targetText}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 🏆 AREA 3: 실시간 오타 교정 하이브리드 결합 원고지 */}
+        <section
+          style={{
+            marginBottom: "40px",
+            borderTop: "3px double #059669",
+            paddingTop: "30px",
+          }}
+        >
+          <h3
+            style={{
+              color: "#059669",
+              marginBottom: "16px",
+              fontWeight: "bold",
+              fontSize: "1.1rem",
+            }}
+          >
+            [🏆 완성판 템플릿: 실시간 오타 판정 하이브리드 원고지 스크린]
+          </h3>
+          <div
+            style={{
+              borderTop: "2px solid #059669",
+              display: "flex",
+              flexDirection: "column",
+              backgroundColor: "#fcfbf7",
+            }}
+          >
+            {finalHybridMatrix.map((row, rowIndex) => (
+              <div
+                key={`hybrid-row-${rowIndex}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(24, 1fr)",
+                }}
+              >
+                {row.map((cell: any, colIndex) => (
+                  <div
+                    key={`hybrid-c-${rowIndex}-${colIndex}`}
+                    style={getHybridCellStyle(cell, colIndex)}
+                  >
+                    <span
+                      className={getCellStyle(cell.originalType || cell.type)}
+                    >
+                      {cell.displayTarget ||
+                      (cell.source === "user" && cell.targetText !== " ")
+                        ? cell.targetText
+                        : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 하단 대시보드 */}
+        <div
+          style={{
+            borderTop: "1px solid #e2e8f0",
+            paddingTop: "20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
+            유저 키 데이터 복원:{" "}
+            <span
+              style={{
+                fontFamily: "monospace",
+                background: "#f1f5f9",
+                padding: "4px 8px",
+                borderRadius: "4px",
+              }}
+            >
+              {convertedUserSentence || "(입력 대기)"}
+            </span>
+          </div>
+          <button
+            onClick={handleNextSentence}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#334155",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            다음 문장 테스트 ➡️
           </button>
         </div>
       </div>
     </div>
   );
 }
-*/
 
 export default App;
