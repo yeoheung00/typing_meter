@@ -2,6 +2,7 @@
 
 @theme {
     --animate-blink: blink 1.2s ease-in infinite;
+    --animate-complete: complete 1s ease-in-out forwards;
     @keyframes blink {
         25%,
         75% {
@@ -9,6 +10,20 @@
         }
         50% {
             opacity: 0;
+        }
+    }
+    @keyframes complete {
+        0% {
+            opacity: 0.5;
+            width: 1%;
+        }
+        50% {
+            opacity: 0.5;
+            width: 100%;
+        }
+        100% {
+            opacity: 0;
+            width: 100%;
         }
     }
 }

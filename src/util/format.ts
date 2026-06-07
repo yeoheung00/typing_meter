@@ -1,6 +1,5 @@
 import { convertSentenceToKeyArray } from "./converter";
 
-// 💡 단일 아키텍처 관리를 위해 absoluteIndex와 오타 관련 옵션들을 온전하게 가공 탑재함
 export interface WongoziCell {
   targetText: string;
   targetKeys: string;
@@ -21,17 +20,11 @@ export interface WongoziCell {
     | "comma-dot";
 }
 export function preprocessSentence(sentence: string): string {
-  return (
-    sentence
-      // 1. 문장부호 뒤에 오는 공백들 제거
-      .replace(/([.,?!'’"”])\s+/g, "$1")
-      // 2. 문장부호 앞에 오는 공백들 제거
-      .replace(/\s+([.,?!'’"”])/g, "$1")
-      // 💡 [추가] 2개 이상 연속된 모든 공백(스페이스, 탭 등)을 단 하나의 공백(" ")으로 축소
-      .replace(/\s+/g, " ")
-      // (선택사항) 문장 앞뒤에 불필요하게 남은 공백이 있다면 깔끔하게 제거
-      .trim()
-  );
+  return sentence
+    .replace(/([.,?!'’"”])\s+/g, "$1")
+    .replace(/\s+([.,?!'’"”])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function formatToWongoziCells(sentence: string): WongoziCell[] {
@@ -152,17 +145,17 @@ export function formatToWongoziCells(sentence: string): WongoziCell[] {
 export function getCellStyle(type: WongoziCell["type"]): string {
   switch (type) {
     case "open-quote":
-      return "absolute right-1 top-0.5 text-3xl flex items-start justify-end w-full h-full p-1";
+      return "absolute right-1 top-0.5 text-3xl flex items-start justify-end w-full h-full p-1 z-10";
     case "close-quote":
-      return "absolute left-1 top-0.5 text-3xl flex items-start justify-start w-full h-full p-1";
+      return "absolute left-1 top-0.5 text-3xl flex items-start justify-start w-full h-full p-1 z-10";
     case "number":
-      return "absolute text-2xl tracking-tighter flex items-center justify-center w-full h-full";
+      return "absolute text-2xl tracking-tighter flex items-center justify-center w-full h-full z-10";
     case "comma-dot":
-      return "absolute left-1 -bottom-3 text-3xl flex items-start justify-start w-full h-full p-1";
+      return "absolute left-1 -bottom-3 text-3xl flex items-start justify-start w-full h-full p-1 z-10";
     case "combined":
       return "";
     case "normal":
     default:
-      return "absolute text-2xl flex items-center justify-center w-full h-full";
+      return "absolute text-2xl flex items-center justify-center w-full h-full z-10";
   }
 }

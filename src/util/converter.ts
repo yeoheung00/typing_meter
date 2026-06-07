@@ -51,17 +51,17 @@ export const JONGSONG_LIST = [
   "ㄲ",
   "ㄳ",
   "ㄴ",
-  "ㄴㅈ",
-  "ㄴㅎ",
+  "ㄵ",
+  "ㄶ",
   "ㄷ",
   "ㄹ",
-  "ㄹㄱ",
-  "ㄹㅁ",
-  "ㄹㅂ",
-  "ㄹㅅ",
-  "ㄹㅌ",
-  "ㄹㅍ",
-  "ㄹㅎ",
+  "ㄺ",
+  "ㄻ",
+  "ㄼ",
+  "ㄽ",
+  "ㄾ",
+  "ㄿ",
+  "ㅀ",
   "ㅁ",
   "ㅂ",
   "ㅄ",
@@ -208,7 +208,6 @@ const COMPLEX_JONG: { [key: string]: string } = {
   qt: "ㅄ",
 };
 
-// 💡 외부(App, format)에서 공통으로 수혈받아 사용할 실시간 한글 자소 분리 유틸
 export function disassembleHangul(char: string): string {
   if (!char) return "";
   const code = char.charCodeAt(0);
@@ -226,9 +225,8 @@ export function disassembleHangul(char: string): string {
   );
 }
 
-// 유니코드 상의 한글 자모 낱자 영역 상수 정의
-const HANGUL_JAMO_BASE = 12593; // 'ㄱ' (0x3131)
-const HANGUL_JAMO_END = 12686; // 'ㅣ' (0x318E)
+const HANGUL_JAMO_BASE = 12593;
+const HANGUL_JAMO_END = 12686;
 
 export const convertSentenceToKeyArray = (sentence: string): string[] => {
   const result: string[] = [];
@@ -237,7 +235,6 @@ export const convertSentenceToKeyArray = (sentence: string): string[] => {
     const char = sentence[i];
     const code = char.charCodeAt(0);
 
-    // 💡 [교정 1] 완성형도 아니고, 단독 자모 영역도 아니라면 (순수 영문, 숫자, 문장부호 등)
     if (
       (code < HANGUL_BASE || code > HANGUL_END) &&
       (code < HANGUL_JAMO_BASE || code > HANGUL_JAMO_END)
@@ -246,7 +243,6 @@ export const convertSentenceToKeyArray = (sentence: string): string[] => {
       continue;
     }
 
-    // 💡 [교정 2] 만약 단독 자모 영역(ㄱ, ㄴ, ㄷ 등)에 해당한다면 바로 영문 매핑 후 패스
     if (code >= HANGUL_JAMO_BASE && code <= HANGUL_JAMO_END) {
       if (KO_TO_EN_MAP[char]) {
         result.push(...KO_TO_EN_MAP[char]);
@@ -256,7 +252,6 @@ export const convertSentenceToKeyArray = (sentence: string): string[] => {
       continue;
     }
 
-    // 3. 정상적인 완성형 한글('가'~ '힣') 분해 로직 (기존 코드 유지)
     const hangulIndex = code - HANGUL_BASE;
     const cho = Math.floor(hangulIndex / 588);
     const jung = Math.floor((hangulIndex % 588) / 28);
@@ -347,19 +342,13 @@ export const convertKeyArrayToSentence = (keyArray: string[]): string => {
         if (combinedJung && !jong) {
           jung = combinedJung;
         } else if (!jong) {
-          // 💡 [교정]: '가' + 'ㅏ' 처럼 복합 모음이 안 되는 상황 처리
-          // 1. 기존의 '가'를 완벽한 글자로 만들어 결합합니다.
           result += makeHangulCharacter(cho, jung);
 
-          // 2. 새로 들어온 모음은 다음 칸에 단독으로 놓여야 합니다.
-          // 오토마타 구조상 초성 없이 모음만 단독으로 오는 글자이므로,
-          // 상태값을 모두 비우고 result에 즉시 누적하는 것이 가장 안전합니다.
           result += ko;
           cho = "";
           jung = "";
           jong = "";
         } else {
-          // 받침(jong)이 있는 상태에서 모음이 들어와 분리되는 상황 (기존 로직 유지)
           let prevJong = "";
           let nextCho = jong;
           const foundCombined = Object.entries(COMPLEX_JONG).find(
