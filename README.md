@@ -1,73 +1,246 @@
-# React + TypeScript + Vite
+# 📝 원고지 타자 연습기 (Typing Meter)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **한국 문학의 감성을 담은 격자형 원고지 스타일의 인터랙티브 타자 연습 프로그램입니다.**
 
-Currently, two official plugins are available:
+> 일반적인 한 줄 타자 연습기와 달리, 실제 원고지 작성 규칙(문장부호 결합, 줄 끝 처리, 공백 예외 등)을 실시간으로 렌더링합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+<br />
 
-## React Compiler
+## ✨ 주요 기능 (Key Features)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **원고지 격자 레이아웃 (Wongozi Grid System)**: 20xN 구조의 격자 무늬 원고지 UI를 완벽히 구현하여 시각적 감성을 더했습니다.
+- **원고지 특수 규칙 완벽 대응**:
+  - 마침표(`.`)나 쉼표(`,`) 뒤에 따옴표(`"`, `'`)가 올 때 한 칸에 결합 처리되는 복합 세포(`combined`) 로직 반영
+  - 행의 마지막 칸(20번째 칸)에 공백이 올 때 줄바꿈 예외 처리 및 공백 아이콘 표시 방어
 
-## Expanding the ESLint configuration
+<br />
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠️ 기술 스택 (Tech Stack)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Design & Image Resources**: Adobe Illustrator
+- **Frontend**: React (TypeScript), Vite
+- **Styling**: Tailwind CSS
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+<br />
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## ⚖️ License
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+> 이 프로젝트는 **MIT License**를 따릅니다. 본 소스코드는 누구나 자유롭게 수정, 배포 및 학습 용도로 활용할 수 있습니다.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+<br />
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🛡️ Disclaimer (면책 조항)
+
+- 본 프로젝트는 영리적 목적이 전혀 없는 순수 개인의 교육, 연구 및 기술 역량 향상(자기개발)을 위해 개발된 토이 프로젝트입니다.
+- 본 앱의 타자 연습 샘플로 사용된 문학 저작물은 저작권법 제35조의5(저작물의 공정 이용) 조항에 의거하여 교육적 컨텐츠 매칭 목적으로만 공정하게 인용되었습니다.
+- 개발자는 저작권법을 준수하며, 원작자의 권리를 침해하거나 상업적으로 이용할 의도가 전혀 없음을 분명히 밝힙니다.
+- 만약 저작권 소유자분께서 출처 표기 변경이나 작품 삭제를 원하실 경우, [GitHub Issues](https://github.com/yeoheung00/typing_meter/issues/new)또는 [메일](mailto:yeoheung27@gmail.com)을 통해 요청해 주시면 확인 즉시 지체 없이 수정 및 삭제 조치를 취하겠습니다.
+
+<br />
+
+## 📜 Credits
+
+> 프로그램 내 타자 연습 문맥을 풍성하게 만들어 준 소중한 문학 저작물의 출처는 다음과 같습니다. 한국 문학의 가치와 원작자의 저작권을 깊이 존중합니다.
+
+- **서시** — 윤동주
+- **진달래꽃** — 김소월
+- **별 헤는 밤** — 윤동주
+- **꽃** — 김춘수
+- **나그네** — 박목월
+- **국화 옆에서** — 서정주
+- **향수** — 정지용
+- **님의 침묵** — 한용운
+- **메밀꽃 필 무렵** — 이효석
+- **봄봄** — 김유정
+- **동백꽃** — 김유정
+- **소나기** — 황순원
+- **광장** — 최인훈
+- **무정** — 이광수
+- **삼대** — 염상섭
+- **태평천하** — 채만식
+- **레디메이드 인생** — 채만식
+- **날개** — 이상
+- **오감도** — 이상
+- **인연** — 피천득
+- **수필** — 피천득
+- **은전 한 닢** — 피천득
+- **토지** — 박경리
+- **태백산맥** — 조정래
+- **아리랑** — 조정래
+- **난장이가 쏘아올린 작은 공** — 조세희
+- **영원한 제국** — 이인화
+- **우리들의 일그러진 영웅** — 이문열
+- **사람의 아들** — 이문열
+- **자전거 도둑** — 김소진
+- **외딴방** — 신경숙
+- **엄마를 부탁해** — 신경숙
+- **칼의 노래** — 김훈
+- **현의 노래** — 김훈
+- **남한산성** — 김훈
+- **채식주의자** — 한강
+- **소년이 온다** — 한강
+- **흰** — 한강
+- **작별하지 않는다** — 한강
+- **청산별곡** — 작자미상
+- **가시리** — 작자미상
+- **사미인곡** — 정철
+- **속미인곡** — 정철
+- **관동별곡** — 정철
+- **규원가** — 허난설헌
+- **누항사** — 박인로
+- **홍길동전** — 허균
+- **구운몽** — 김만중
+- **사씨남정기** — 김만중
+- **춘향전** — 작자미상
+- **심청전** — 작자미상
+- **흥부전** — 작자미상
+- **별주부전** — 작자미상
+- **장화홍련전** — 작자미상
+- **방방곡곡** — 김삿갓
+- **자화상** — 윤동주
+- **낙화** — 이형기
+- **껍데기는 가라** — 신동엽
+- **독도** — 외솔 최현배
+- **바라건대 우리는** — 김소월
+- **빼앗긴 들에도 봄은 오는가** — 이상화
+- **광야** — 이육사
+- **청포도** — 이육사
+- **교목** — 이육사
+- **절정** — 이육사
+- **풀** — 김수영
+- **폭포** — 김수영
+- **눈** — 김수영
+- **추천사** — 서정주
+- **성북동 비둘기** — 김광섭
+- **독를 차고** — 김영랑
+- **모란이 피기까지는** — 김영랑
+- **돌담에 속삭이는 햇발** — 김영랑
+- **오월** — 김영랑
+- **논개** — 변영로
+- **떠나가는 배** — 박용철
+- **산유화** — 김소월
+- **초혼** — 김소월
+- **접동새** — 김소월
+- **먼 후일** — 김소월
+- **유리창** — 정지용
+- **구성동** — 정지용
+- **바다** — 정지용
+- **춘설** — 정지용
+- **슬픔이 기쁨에게** — 정호승
+- **외로우니까 사람이다** — 정호승
+- **고래를 위하여** — 정호승
+- **흔들리지 않고 피는 꽃이 어디 있으랴** — 도종환
+- **담쟁이** — 도종환
+- **귀천** — 천상병
+- **소풍** — 천상병
+- **너에게 묻는다** — 안도현
+- **스며드는 것** — 안도현
+- **방문객** — 정현종
+- **섬** — 정현종
+- **대추 한 알** — 장석주
+- **풀꽃** — 나태주
+- **멀리서 빈다** — 나태주
+- **가을공원** — 나태주
+- **행복** — 유치환
+- **동동** — 작자미상
+- **정석가** — 작자미상
+- **면앙정가** — 송순
+- **성산별곡** — 정철
+- **선상탄** — 박인로
+- **한중록** — 혜경궁 홍씨
+- **박씨전** — 작자미상
+- **임경업전** — 작자미상
+- **유충렬전** — 작자미상
+- **양반전** — 박지원
+- **허생전** — 박지원
+- **호질** — 박지원
+- **금오신화** — 김시습
+- **운영전** — 작자미상
+- **숙향전** — 작자미상
+- **옹고집전** — 작자미상
+- **배비장전** — 작자미상
+- **콩쥐팥쥐전** — 작자미상
+- **최척전** — 조위한
+- **만무방** — 김유정
+- **따뜻한 응달** — 김유정
+- **금따는 콩밭** — 김유정
+- **치숙** — 채만식
+- **미스터 방** — 채만식
+- **탁류** — 채만식
+- **백록담** — 정지용
+- **종로5가** — 신동엽
+- **금강** — 신동엽
+- **해에게서 소년에게** — 최남선
+- **국경의 밤** — 김동환
+- **감자** — 김동인
+- **배따라기** — 김동인
+- **광염 소나타** — 김동인
+- **수난이대** — 하근찬
+- **흰 종이 수염** — 하근찬
+- **독 짓는 늙은이** — 황순원
+- **학** — 황순원
+- **목넘이 마을의 개** — 황순원
+- **역마** — 김동리
+- **무녀도** — 김동리
+- **등신불** — 김동리
+- **화산댁이** — 오영수
+- **갯마을** — 오영수
+- **오발탄** — 이범선
+- **비 오는 날** — 손창섭
+- **잉여인간** — 손창섭
+- **사하촌** — 김정한
+- **모래톱 이야기** — 김정한
+- **수라도** — 김정한
+- **불꽃** — 선우휘
+- **벼** — 이성부
+- **농무** — 신경림
+- **가난한 사랑 노래** — 신경림
+- **목계장터** — 신경림
+- **새들도 세상을 뜨는구나** — 황지우
+- **너를 기다리는 동안** — 황지우
+- **겨울-이정표** — 기형도
+- **빈집** — 기형도
+- **질투는 나의 힘** — 기형도
+- **엄마의 말뚝** — 박완서
+- **그 많던 싱아는 누가 다 먹었을까** — 박완서
+- **나목** — 박완서
+- **그대 아직도 꿈꾸고 있는가** — 박완서
+- **원미동 시인** — 양귀자
+- **한계령** — 양귀자
+- **모순** — 양귀자
+- **무소의 뿔처럼 혼자서 가라** — 공지영
+- **고등어** — 공지영
+- **도가니** — 공지영
+- **서편제** — 이청준
+- **눈길** — 이청준
+- **당신들의 천국** — 이청준
+- **줄광대** — 이청준
+- **삼포 가는 길** — 황석영
+- **한 씨 연대기** — 황석영
+- **객지** — 황석영
+- **장길산** — 황석영
+- **영자야 내 동생아** — 조선작
+- **영자의 전성시대** — 조선작
+- **깊고 푸른 밤** — 최인호
+- **고래 사냥** — 최인호
+- **타인의 방** — 최인호
+- **순이 삼촌** — 현기영
+- **풍선** — 최민석
+- **두근두근 내 인생** — 김애란
+- **달려라 아비** — 김애란
+- **비행운** — 김애란
+- **바람이 분다, 가라** — 한강
+- **캐비닛** — 김언수
+- **설계자들** — 김언수
+- **구의 증명** — 최진영
+- **해가 지는 곳으로** — 최진영
+- **보건교사 안은영** — 정세랑
+- **시선으로부터,** — 정세랑
+- **지구에서 한아뿐** — 정세랑
+- **아몬드** — 손원평
+- **우리가 빛의 속도로 갈 수 없다면** — 김초엽
+- **지구 끝의 온실** — 김초엽
+- **방금 떠나온 세계** — 김초엽
+- **불편한 편정** — 김호연
+
+© 2026 MinK Studio. All rights reserved.
