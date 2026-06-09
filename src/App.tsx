@@ -11,7 +11,7 @@ import {
 import BlankIcon from "./components/BlankIcon";
 import "./App.css";
 
-const VERSION = "v1.2.1";
+const VERSION = "v1.2.2";
 
 const THEME_COLORS = {
   text: "text-red-400",

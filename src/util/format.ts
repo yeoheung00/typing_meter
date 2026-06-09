@@ -25,7 +25,7 @@ const isPunctuationCell = (c: WongoziCell | undefined): boolean => {
   if (["combined", "open-quote", "close-quote"].includes(c.type)) return true;
 
   // 특수문자 검사 (한글, 영문, 숫자, 공백 제외)
-  return /[^가-힣ㄱ-ㅣa-zA-Z0-9\s]/.test(c.targetText);
+  return /[^가-힣ㄱ-ㅣa-zA-Z0-9]/.test(c.targetText);
 };
 
 const QUOTE_MAP = {
