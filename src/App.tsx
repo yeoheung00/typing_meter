@@ -11,6 +11,8 @@ import {
 import BlankIcon from "./components/BlankIcon";
 import "./App.css";
 
+const VERSION = "v1.2.1";
+
 const THEME_COLORS = {
   text: "text-red-400",
   line: "bg-red-400",
@@ -394,7 +396,9 @@ function App() {
                         (userKeys.length === 0 &&
                           rowIndex === 0 &&
                           cellIndex === 0)) && (
-                        <div className="absolute w-10 h-0.5 left-1/2 bottom-1 -translate-x-1/2 bg-black animate-blink" />
+                        <div className="w-full h-full flex flex-col items-center justify-end">
+                          <div className="w-10 h-0.5 mb-1 bg-black animate-blink" />
+                        </div>
                       )}
 
                     {cpmBreak && (
@@ -448,7 +452,7 @@ function App() {
       <footer className="absolute bottom-4 left-1/2 -translate-x-1/2 w-max max-w-4xl flex flex-col items-center gap-2 text-xs text-gray-400 opacity-40 hover:opacity-100 transition-opacity duration-300 pointer-events-auto font-sans">
         {/* 버전 정보 */}
         <h1 className="text-[10px] text-gray-400 font-sans tracking-widest uppercase mb-1">
-          v1.2.0
+          {VERSION}
         </h1>
 
         {/* 주요 링크 그룹 */}
