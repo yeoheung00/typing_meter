@@ -1,8 +1,28 @@
 @import "tailwindcss";
 
+@font-face {
+    font-family: "gwkymd"; /* 👈 이름을 똑같이 통일합니다. */
+    src: url("/fonts/light.ttf") format("truetype"); /* 실제 파일명 */
+    font-weight: 300; /* 💡 Light에 해당하는 두께 값을 숫자로 명시 (300 또는 light) */
+    font-style: normal;
+    font-display: swap;
+}
+
+/* 2. Bold 두께 파일 등록 */
+@font-face {
+    font-family: "gwkymd"; /* 👈 위와 완벽히 똑같은 이름 사용! */
+    src: url("/fonts/bold.ttf") format("truetype"); /* 실제 파일명 */
+    font-weight: 700; /* 💡 Bold에 해당하는 두께 값을 숫자로 명시 (700 또는 bold) */
+    font-style: normal;
+    font-display: swap;
+}
+
 @theme {
+    --font-serif: "gwkymd", serif;
     --animate-blink: blink 1.2s ease-in infinite;
     --animate-complete: complete 1s ease-in-out forwards;
+    --animate-transition1: transition1 0.3s ease-in-out forwards;
+    --animate-transition1-r: transition1 0.3s ease-in-out reverse forwards;
     @keyframes blink {
         25%,
         75% {
@@ -24,6 +44,16 @@
         100% {
             opacity: 0;
             width: 100%;
+        }
+    }
+    @keyframes transition1 {
+        0% {
+            max-width: 0px;
+            opacity: 0;
+        }
+        100% {
+            max-width: 100px;
+            opacity: 1;
         }
     }
 }

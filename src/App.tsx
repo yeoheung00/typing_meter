@@ -7,34 +7,55 @@ import {
   preprocessSentence,
   type WongoziCell,
 } from "./util/format";
+import BlankIcon from "./components/BlankIcon";
 import "./App.css";
 
 function App() {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState<number>(() =>
+    Math.floor(Math.random() * TYPING_SAMPLES.length),
+  );
+  const history = useRef<number[]>([]);
   const [userKeys, setUserKeys] = useState<string[]>([]);
 
-  const currentSentence = useMemo(
+  const currentSentence = useMemo<string>(
     () => preprocessSentence(TYPING_SAMPLES[index].sentence),
     [index],
   );
-  const convertedUserSentence = convertKeyArrayToSentence(userKeys);
+  const convertedUserSentence: string = convertKeyArrayToSentence(userKeys);
 
-  const userWongoziFormat = formatToWongoziCells(convertedUserSentence);
-  const targetWongoziFormat = formatToWongoziCells(currentSentence);
+  const userWongoziFormat: WongoziCell[] = formatToWongoziCells(
+    convertedUserSentence,
+  );
+  const targetWongoziFormat: WongoziCell[] =
+    formatToWongoziCells(currentSentence);
 
-  const isTyping = userKeys.length > 0;
-  const isEnd = userWongoziFormat.length >= targetWongoziFormat.length;
-  const [cpmBreak, setCpmBreak] = useState(false);
-  const startTime = useRef(0);
-  const refreshTime = useRef(0);
-  const [cpm, setCpm] = useState(0);
+  const isTyping: boolean = userKeys.length > 0;
+  const isEnd: boolean = userWongoziFormat.length >= targetWongoziFormat.length;
+  const [cpmBreak, setCpmBreak] = useState<boolean>(false);
+  const [animationState, setAnimationState] = useState<
+    "initial" | "expanded" | "collapsed"
+  >("initial");
+  const startTime = useRef<number>(0);
+  const refreshTime = useRef<number>(0);
+  const [cpm, setCpm] = useState<number>(0);
 
-  const handleNextSentence = () => {
+  const handleNextSentence: () => void = (): void => {
     startTime.current = 0;
     refreshTime.current = 0;
-    setIndex((p) => (p + 1) % TYPING_SAMPLES.length);
+    while (true) {
+      if (history.current.length === TYPING_SAMPLES.length) {
+        history.current = [];
+      }
+      const nextIndex = Math.floor(Math.random() * TYPING_SAMPLES.length);
+      if (!history.current.includes(nextIndex)) {
+        setIndex(nextIndex);
+        history.current.push(nextIndex);
+        break;
+      }
+    }
     setUserKeys([]);
     setCpmBreak(false);
+    setAnimationState("collapsed");
     setCpm(0);
   };
 
@@ -83,6 +104,7 @@ function App() {
       if (isEnd && !cpmBreak) {
         console.log("end");
         setCpmBreak(true);
+        setAnimationState("expanded");
       }
     };
 
@@ -106,6 +128,7 @@ function App() {
       if (e.key === "Backspace") {
         e.preventDefault();
         setUserKeys((prev) => prev.slice(0, -1));
+        if (userKeys.length === 1) setCpm(0);
         return;
       }
 
@@ -289,6 +312,7 @@ function App() {
     line: "bg-red-400",
     border: "border-red-400",
     bg: "bg-blue-100",
+    shadow: "shadow-blue-100",
   };
 
   const textColor = themeColors.text;
@@ -361,6 +385,16 @@ function App() {
                           {cell.targetText[1]}
                         </span>
                       </div>
+                    ) : cell.targetText === " " && cellIndex > 19 ? (
+                      <BlankIcon
+                        className={
+                          cell.isErr === undefined
+                            ? "text-gray-300"
+                            : cell.isErr
+                              ? "text-red-400"
+                              : "opacity-0"
+                        }
+                      />
                     ) : (
                       <span
                         className={getCellStyle(
@@ -402,18 +436,29 @@ function App() {
 
         <div className="w-full pr-28 flex justify-end">
           <button
-            className={`${bgColor} h-10 py-1 px-2 cursor-pointer rounded-full flex flex-row items-center`}
+            className={`${bgColor} h-10 py-1 pl-2 cursor-pointer rounded-full flex flex-row items-center overflow-hidden`}
             onClick={(e) => {
               e.currentTarget.blur();
               handleNextSentence();
             }}
           >
             <span
-              className={` w-max whitespace-nowrap ${!cpmBreak ? "max-w-0" : "max-w-xs"} transition-all duration-500 ease-in-out h-fit overflow-hidden`}
+              key={cpmBreak ? "expanded" : "collapsed"}
+              className={` w-max whitespace-nowrap h-fit z-5 ${
+                animationState === "initial"
+                  ? "max-w-0 opacity-0"
+                  : animationState === "collapsed"
+                    ? "animate-transition1-r"
+                    : "animate-transition1"
+              }`}
             >
               Enter를 눌러&nbsp;
             </span>
-            <span className="w-fit h-fit">넘어가기</span>
+            <span
+              className={`w-fit h-fit pr-2 z-10 shadow-[-4px_0px_4px_0px_#dbeafe] ${bgColor}`}
+            >
+              넘어가기
+            </span>
           </button>
         </div>
       </main>
